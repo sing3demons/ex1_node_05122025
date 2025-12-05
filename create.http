@@ -1,0 +1,12 @@
+@uri=http://localhost:3000
+
+###
+POST {{uri}}/register HTTP/1.1
+Content-Type: application/json
+
+{
+  "firstName": "john",
+  "lastName": "doe",
+  "email": "john@test.com",
+  "password": "123456"
+}
