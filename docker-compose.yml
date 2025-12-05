@@ -6,6 +6,15 @@ services:
       - "27017:27017"
     # volumes:
     #   - mongo_data:/data/db
-networks:
-  auth_network:
-    driver: bridge
+  auth_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auth_service
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - MONGODB_URL=mongodb://mongo:27017
+    depends_on:
+      - mongo
