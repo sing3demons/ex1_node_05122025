@@ -3,6 +3,10 @@ import { MongoClient } from 'mongodb'
 import { z } from 'zod';
 import http, { Server } from 'http';
 import bcrypt from 'bcrypt';
+import UserMongoRepository from './repository/user.repository.js';
+import UserService from './service/user.service.js';
+import { RegisterSchema } from './schema/schema.js';
+import UserController from './controller/user.controller.js';
 
 type UserModel = {
     id: string;
@@ -16,14 +20,7 @@ type UserModel = {
     updatedAt: Date;
     deletedAt?: Date;
 }
-const RegisterSchema = z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    email: z.string(),
-    password: z.string().min(6),
-    phoneNumber: z.string().optional(),
-    avatarUrl: z.string().optional(),
-})
+
 
 async function connectToDatabase(): Promise<MongoClient> {
     // Placeholder for future database connection logic
@@ -44,7 +41,13 @@ const createMongoConnection = async () => {
 
     const connectWithRetry = async (): Promise<MongoClient> => {
         try {
-            const client = await connectToDatabase();
+            const url = process.env.MONGODB_URL || 'mongodb://localhost:27017';
+            console.log(`Connecting to MongoDB at ${url}...`);
+            const client = new MongoClient(url);
+
+            await client.connect();
+            console.log('Connected successfully to server');
+            console.log(`Connected to MongoDB at ${url}`);
             return client;
         } catch (error) {
             if (currentReconnectAttempts < maxReconnectAttempts) {
@@ -64,10 +67,11 @@ const createMongoConnection = async () => {
 
 async function main() {
     const client = await createMongoConnection();
-    // Database Name
-    const dbName = 'myProject';
-    const db = client.db(dbName);
-    // const collection = db.collection('users');
+
+    // di user
+    const userRepository = new UserMongoRepository(client);
+    const userService = new UserService(userRepository);
+    const userController = new UserController(userService);
 
     // Placeholder for future asynchronous operations
     const app = express();
@@ -75,76 +79,14 @@ async function main() {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
-    app.get('/wait', async (_req: Request, res: Response) => {
-        const endpoint = 'GET /wait';
-        const startTime = new Date();
-        const totalSeconds = 9; // ลดเหลือ 10 วินาทีเพื่อทดสอบ
-        console.log(`[${startTime.toISOString()}] [${endpoint}] Request received`);
-
-        for (let remaining = totalSeconds; remaining > 0; remaining--) {
-            console.log(`[${new Date().toISOString()}] [${endpoint}] Countdown: ${remaining}s remaining...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        const endTime = new Date();
-        const duration = (endTime.getTime() - startTime.getTime()) / 1000;
-        console.log(`[${endTime.toISOString()}] [${endpoint}] Completed (took ${duration}s)`);
-        res.json({ status: 'OK' });
-    });
-
     app.get('/health', async (_req: Request, res: Response) => {
-        const endpoint = 'GET /health';
-        const startTime = new Date();
-
-
-        const endTime = new Date();
-        const duration = (endTime.getTime() - startTime.getTime()) / 1000;
-        console.log(`[${endTime.toISOString()}] [${endpoint}] Completed (took ${duration}s)`);
         res.json({
             status: 'OK',
-            durationInSeconds: duration,
-            timestamp: endTime.toISOString(),
         });
     });
 
-    app.post("/register", async (req: Request, res: Response) => {
-        try {
-            console.log("Register endpoint hit");
-            // validation 
-            const body = RegisterSchema.parse(req.body);
-
-            // business logic
-            // - check if user already exists
-            const collection = db.collection('users');
-            const existingUser = await collection.countDocuments({ email: body.email, deletedAt: null });
-            if (existingUser > 0) {
-                return res.status(400).json({ error: "User already exists" });
-            }
-            // - hash password
-            const saltRounds = await bcrypt.genSalt(10); // ค่ามาตรฐาน (ยิ่งสูงยิ่งช้าแต่ปลอดภัย)
-            const hashedPassword = await bcrypt.hash(body.password, saltRounds);
-
-            const doc = {
-                ...body,
-                password: hashedPassword,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                deletedAt: null,
-            }
-            // - store user in database
-            const result = await collection.insertOne(doc);
-
-            res.json({ message: "User registered successfully", data: result });
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                console.error("Validation error:", error.issues);
-                return res.status(400).json({ errors: error.issues });
-            }
-            res.status(500).json({ error: "Internal Server Error" });
-
-        }
-
-    });
+    // app.post("/register", (req: Request, res: Response) => userController.register(req, res));
+    app.post("/register", userController.register);
 
     const server = http.createServer(app);
     server.listen(port);
