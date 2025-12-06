@@ -1,7 +1,8 @@
 import { describe, it, expect, test, jest } from '@jest/globals';
 import type { IUserRepository } from '../repository/user.repository.js';
 import UserService from './user.service.js';
-import type { InsertOneResult, Document } from 'mongodb';
+import { type InsertOneResult, type Document, MongoClient } from 'mongodb';
+import UserMongoRepository from '../repository/user.repository.js';
 
 describe('UserService', () => {
     const mockUserRepository: jest.Mocked<IUserRepository> = {
