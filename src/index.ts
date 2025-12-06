@@ -5,7 +5,7 @@ import http, { Server } from 'http';
 import bcrypt from 'bcrypt';
 
 type UserModel = {
-    id: number;
+    id: string;
     firstName: string;
     lastName: string;
     email: string;
