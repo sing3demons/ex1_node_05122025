@@ -3,6 +3,8 @@ import { MongoClient, MongoError, type Document, type InsertOneResult } from 'mo
 interface IUserRepository {
     checkUserExists(email: string): Promise<ResponseData<boolean>>;
     saveUser(user: any): Promise<ResponseData<InsertOneResult<Document>>>
+    findUserByEmail(email: string): Promise<ResponseData<Document | null>>;
+    findUserByPhoneNumber(phoneNumber: string): Promise<ResponseData<Document | null>>;
 }
 
 type ResponseData<T = any> = {
@@ -77,6 +79,56 @@ class UserMongoRepository implements IUserRepository {
             };
         } catch (error) {
             console.error('Error checking user existence:', error);
+            if (error instanceof MongoError) {
+                return {
+                    err: true,
+                    desc: `MongoDB error: ${error.message}`,
+                    data: null
+                }
+            }
+            return {
+                err: true,
+                desc: "error",
+                data: error
+            }
+        }
+    }
+
+    public async findUserByEmail(email: string): Promise<ResponseData<Document | null>> {
+        try {
+            const user = await this.getCollection().findOne({ email, deletedAt: null });
+            return {
+                err: false,
+                desc: "User found successfully",
+                data: user
+            };
+        } catch (error) {
+            console.error('Error finding user by email:', error);
+            if (error instanceof MongoError) {
+                return {
+                    err: true,
+                    desc: `MongoDB error: ${error.message}`,
+                    data: null
+                }
+            }
+            return {
+                err: true,
+                desc: "error",
+                data: error
+            }
+        }
+    }
+
+    public async findUserByPhoneNumber(phoneNumber: string): Promise<ResponseData<Document | null>> {
+        try {
+            const user = await this.getCollection().findOne({ phoneNumber, deletedAt: null });
+            return {
+                err: false,
+                desc: "User found successfully",
+                data: user
+            };
+        } catch (error) {
+            console.error('Error finding user by phone number:', error);
             if (error instanceof MongoError) {
                 return {
                     err: true,
